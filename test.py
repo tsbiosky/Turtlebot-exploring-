@@ -25,15 +25,19 @@ def getmap(msg):
 	explore()
 	#print grid_map
 def get_gain(grid,x,y,reso):
-	up=y-int(0.5/reso)
+	r=10
+	up=y-r
 	gain=0
-	down=y+int(0.5/reso)
+	down=y+r
 	#print up,down,y
 	for h in range(up,down):
-		for w in range(x-(int(0.5/reso)-h+y),x+(int(0.5/reso)-h+y)):
+		#for w in range(x-(r-abs(y-h)),x+(r-abs(y-h))):
+		for w in range(x-r,x+r):
 			try:
 				if grid[w][h]==-1:
 						gain+=1
+				if grid[w][h]==100:
+						gain=gain-1
 			except:
 				a=0
 	return gain			
@@ -68,32 +72,36 @@ def explore():
 				try:
 					up=grid[i][j+1]
 				except:
-					up=-100
+					up=100
 				try:
 					left=grid[i-1][j]
 				except:
-					left=-100
+					left=100
 				try:
 					right=grid[i+1][j]
 				except:
-					right=-100
+					right=100
 				try:
 					down=grid[i][j-1]
 				except:
-					down=-100
+					down=100
 				if up==-1 or left==-1 or right==-1 or down==-1:
-					tt=(i,j)
-					front_cell.append(tt)
-	beta=10
+					if up<1 and left<1 and right <1 and down <1:
+						tt=(i,j)
+						front_cell.append(tt)
+	beta=1
 	max_gain=0
 	t_x=0
 	t_y=0
 	#get info gain
 	
 	for i in range(0,len(front_cell)):
-		y=front_cell[i][0]
-		x=front_cell[i][1]
+		#y=front_cell[i][0]
+		#x=front_cell[i][1]
+		y=front_cell[i][1]
+		x=front_cell[i][0]
 		info_gain=get_gain(grid,x,y,reso)
+		#print info_gain
 		dis=math.sqrt((x-current_grid_x)**2+(y-current_grid_y)**2)
 		gain=info_gain-dis*beta
 		if gain>=max_gain:
@@ -105,6 +113,37 @@ def explore():
 	target_y=ori_y+t_y*reso
 	print "target:"+str(target_x)+" "+str(target_y)
 	print "current:"+str(current_x)+" "+str(current_y)
+	#fix
+	t_dis=((current_x-target_x)**2+(target_y-current_y)**2)**0.5
+	if t_dis<0.3:
+		print "fix"
+		d_x=target_x-current_x
+		d_y=target_y-current_y
+		dd=d_y/d_x
+		f_dis=(d_x**2+d_y**2)**0.5
+		if d_x<0:
+			f_x=target_x-(1/(dd**2+1))**0.5
+		else:
+			f_x=target_x+ (1/(dd**2+1))**0.5
+		if d_y<0:
+			f_y=target_y-(dd**2/(dd**2+1))**0.5
+		else:
+			f_y=target_y+ (dd**2/(dd**2+1))**0.5
+		f_y_c=int((f_y-ori_y)/reso)
+		f_x_c=int((f_x-ori_x)/reso)
+		#vc=911
+	
+		try:
+			vc=grid[f_x_c][f_y_c]
+		
+		except:
+			vc=100
+		if f_x_c<0 or f_y_c<0:
+			vc=100
+		if vc==-1:
+			target_x=f_x
+			target_y=f_y
+			print "new target:"+str(target_x)+" "+str(target_y)
 	#move to target
 	
 	move_base = actionlib.SimpleActionClient("move_base", MoveBaseAction)
@@ -127,45 +166,18 @@ def explore():
 		print"explore "
 		turnaround(2*math.pi)
 		move(target_x,target_y)
-	d_x=target_x-last_x
-	d_y=target_y-last_y
-	dd=d_y/d_x
-	f_dis=(d_x**2+d_y**2)**0.5
-	if d_x<0:
-		f_x=target_x-(1/dd**2+1)**0.5
-	else:
-		f_x=target_x+ (1/dd**2+1)**0.5
-	if d_y<0:
-		f_y=target_y-(dd**2/dd**2+1)**0.5
-	else:
-		f_y=target_y+ (dd**2/dd**2+1)**0.5
-	f_y_c=int((f_y-ori_y)/reso)
-	f_x_c=int((f_x-ori_x)/reso)
-	#vc=911
 	
-	try:
-		vc=grid[f_x_c][f_y_c]
-		
-	except:
-		vc=100
-	if f_x_c<0 or f_y_c<0:
-		vc=100
+	
 	#print "vc:"+str(f_x)+str(f_y)
 	#print d_x,d_y
 	#print "f_dis:"+str(f_dis)
+'''
 	if f_dis<0.5:
 		if vc!=100:
-			'''
-			goal.target_pose.pose = Pose(Point(f_x, f_y,0.000),Quaternion(0,0,0,1))
-			move_base.send_goal(goal)
-			success = move_base.wait_for_result(rospy.Duration(600))
 			
-			print "vc:"+str(f_x)+str(f_y)
-			print "vc_grid:"+str(f_x_c)+" "+str(f_y_c)+" "+str(vc)
-			'''
 			print "fix"
 			move(f_x,f_y)
-'''
+
 			f_rad=np.arctan((f_x-target_x)/(f_y-target_y))
 			cmd_vel=rospy.Publisher('cmd_vel_mux/input/navi',Twist,queue_size=10)
 			r=rospy.Rate(1);
@@ -203,7 +215,7 @@ def turn(target_x,target_y):
 	r=rospy.Rate(1)
 	rad=math.atan2(2*(yaw_w*yaw_z+yaw_x*yaw_y),1-2*(yaw_y*yaw_y+yaw_z*yaw_z))	
 	target_rad=math.atan2(target_y-current_y,target_x-current_x)
-	speed=0.1
+	speed=0.2
 	last=abs(rad-target_rad)
 	while abs(rad-target_rad)>0.05:
 			#print abs(rad-target_rad),rad,target_rad
@@ -236,14 +248,14 @@ def move(target_x,target_y):
 		last_dis=dis
 		speed=0.5
 		print "go"
-		while dis>0.5:
+		while dis>0.3:
 			
 			move_cmd=Twist()
 			
-			if last_dis>=dis:
+			if last_dis<dis:
 				turn(target_x,target_y)
 			else:
-				speed=-speed
+				a=0
 			move_cmd.linear.x=speed
 			move_cmd.angular.z=0
 			last_dis=dis
