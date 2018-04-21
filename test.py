@@ -10,6 +10,10 @@ from actionlib_msgs.msg import *
 from geometry_msgs.msg import Pose, Point, Quaternion
 import math
 import numpy as np
+import roslib; roslib.load_manifest('visualization_marker_tutorials')
+from visualization_msgs.msg import Marker
+from visualization_msgs.msg import MarkerArray
+from std_msgs.msg import String
 #global grid_map
 def getmap(msg):
 	global current_x,current_y,yaw_x,yaw_y,yaw_z,yaw_w,rad
@@ -25,7 +29,7 @@ def getmap(msg):
 	explore()
 	#print grid_map
 def get_gain(grid,x,y,reso):
-	r=10
+	r=25
 	up=y-r
 	gain=0
 	down=y+r
@@ -37,7 +41,7 @@ def get_gain(grid,x,y,reso):
 				if grid[w][h]==-1:
 						gain+=1
 				if grid[w][h]==100:
-						gain=gain-1
+						gain=gain-30
 			except:
 				a=0
 	return gain			
@@ -89,17 +93,18 @@ def explore():
 					if up<1 and left<1 and right <1 and down <1:
 						tt=(i,j)
 						front_cell.append(tt)
-	beta=1
+	#print len(front_cell)
+	beta=0.2
 	max_gain=0
 	t_x=0
 	t_y=0
 	#get info gain
 	
 	for i in range(0,len(front_cell)):
-		#y=front_cell[i][0]
-		#x=front_cell[i][1]
-		y=front_cell[i][1]
-		x=front_cell[i][0]
+		y=front_cell[i][0]
+		x=front_cell[i][1]
+		#y=front_cell[i][1]
+		#x=front_cell[i][0]
 		info_gain=get_gain(grid,x,y,reso)
 		#print info_gain
 		dis=math.sqrt((x-current_grid_x)**2+(y-current_grid_y)**2)
@@ -113,6 +118,8 @@ def explore():
 	target_y=ori_y+t_y*reso
 	print "target:"+str(target_x)+" "+str(target_y)
 	print "current:"+str(current_x)+" "+str(current_y)
+	
+	#markerArray.markers=[]
 	#fix
 	t_dis=((current_x-target_x)**2+(target_y-current_y)**2)**0.5
 	if t_dis<0.3:
@@ -145,7 +152,11 @@ def explore():
 			target_y=f_y
 			print "new target:"+str(target_x)+" "+str(target_y)
 	#move to target
-	
+	s_target=str(target_x)+" "+str(target_y)
+	pub = rospy.Publisher('s_target', String, queue_size=10)
+	#while not rospy.is_shutdown():
+	pub.publish(s_target)
+	rospy.sleep(0.05)
 	move_base = actionlib.SimpleActionClient("move_base", MoveBaseAction)
 	move_base.wait_for_server(rospy.Duration(5))
 	goal = MoveBaseGoal()
@@ -215,9 +226,9 @@ def turn(target_x,target_y):
 	r=rospy.Rate(1)
 	rad=math.atan2(2*(yaw_w*yaw_z+yaw_x*yaw_y),1-2*(yaw_y*yaw_y+yaw_z*yaw_z))	
 	target_rad=math.atan2(target_y-current_y,target_x-current_x)
-	speed=0.2
+	speed=0.1
 	last=abs(rad-target_rad)
-	while abs(rad-target_rad)>0.05:
+	while abs(rad-target_rad)>0.1:
 			#print abs(rad-target_rad),rad,target_rad
 			move_cmd=Twist()
 			move_cmd.linear.x=0
@@ -283,6 +294,15 @@ def getpos(msg):
 if __name__ == "__main__":
 	rospy.init_node('OccupancyGrid', anonymous=True) #make node 
 	#global grid_map
+	topic = 'visualization_marker'
+	publisher = rospy.Publisher(topic, Marker,queue_size=10)
+	markerArray = MarkerArray()
+	marker=Marker()
+	####
+	#markerArray.markers=[]
+	markerArray.markers.append(marker)
+	publisher.publish(marker)
+####
 	current_x=0
 	current_y=0
 	current_z=0
@@ -291,9 +311,10 @@ if __name__ == "__main__":
 	yaw_z=0
 	yaw_w=0
 	rad=0
-	rospy.Subscriber('odom',Odometry,getpos)
-	#move()
-    	rospy.Subscriber('/map',OccupancyGrid,getmap)
+	while not rospy.is_shutdown():
+		rospy.Subscriber('odom',Odometry,getpos)
+		#move()
+		rospy.Subscriber('/map',OccupancyGrid,getmap)
     	rospy.spin()
 	#explore()
     	
