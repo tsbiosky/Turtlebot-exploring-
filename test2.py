@@ -49,8 +49,8 @@ while not rospy.is_shutdown():
    marker.color.b = 0.0
    marker.pose.orientation.w = 1.0
    print target_x,target_y
-   marker.pose.position.x = target_x	
-   marker.pose.position.y = target_y
+   marker.pose.position.x = target_x
+   marker.pose.position.y =target_y
    #marker.pose.position.x = ori_x	
    #marker.pose.position.y = ori_y
    marker.pose.position.z = 0
